@@ -67,11 +67,11 @@ class Trade:
     self.bids = []
     self.asks = []
 
-  def add_bid(self, elem: TradeElement):
-    self.bids.append(elem)
+  # def add_bid(self, elem: TradeElement):
+  #   self.bids.append(elem)
 
-  def add_ask(self, elem: TradeElement):
-    self.ask.append(elem)
+  # def add_ask(self, elem: TradeElement):
+  #   self.asks.append(elem)
 
 
 class OrderBook:
@@ -136,6 +136,33 @@ class OrderBook:
     new_order = Order(id, modified_side, modified_type, modify.get_price(), modify.get_quantity())
     self.add_order(new_order)
     return True
+
+  def fill_order(self, side: Side, quantity_remaining: float): # -> (float, [TradeElement])
+    if side == Side.bid:
+      top_level = self.asks.peektiem(0)  # (float : [int])
+    else:
+      top_level = self.bids.peektiem(0)  # (float : [int])
+    if top_level == None:
+      return None
+    fills = []
+    for id in top_level[1]:
+      fill = self.orders[id]
+      fill_quantity = fill.get_quantity()
+      if quantity_remaining >= fill_quantity:
+        quantity_remaining -= fill_quantity  
+        fill_elem = TradeElement(fill.get_id(), fill.get_price(), fill_quantity)
+        fills.append(fill_elem)
+        self.cancel_order(fill.get_id())
+      else:
+        fill_quantity -= quantity_remaining
+        fill_elem = TradeElement(fill.get_id(), fill.get_price(), quantity_remaining)
+        fills.append(fill_elem)
+        modified_fill = Modify(fill.get_id(), fill.get_price(), fill_quantity)
+        self.modify_order(modified_fill)
+        quantity_remaining = 0.0
+        break
+
+    return (quantity_remaining, fills)
   
 
   def add_order(self, order: Order) -> Trade:
@@ -147,56 +174,42 @@ class OrderBook:
       if side == Side.bid and self.asks.__len__() != 0:
         quantity_remaining = order.get_quantity()
         bid_elem = TradeElement(order.get_id(), order.get_price(), quantity_remaining)
-        trade.add_bid(bid_elem)
+        trade.bids.append(bid_elem)
         while quantity_remaining > 0.0 and self.asks.__len__() != 0:
-          top_item = self.asks.peektiem(0)  # (float : [int])
-          if top_item == None:
-            break
-          for id in top_item[1]:
-            ask = self.orders[id]
-            ask_quantity = ask.get_quantity()
-            if quantity_remaining >= ask_quantity:
-              quantity_remaining -= ask_quantity  
-              ask_elem = TradeElement(ask.get_id(), ask.get_price(), ask_quantity)
-              trade.add_ask(ask_elem)
-              self.cancel_order(ask.get_id())
-            else:
-              ask_quantity -= quantity_remaining
-              ask_elem = TradeElement(ask.get_id(), ask.get_price(), quantity_remaining)
-              trade.add_ask(ask_elem)
-              modified_ask = Modify(ask.get_id(), ask.get_price(), ask_quantity)
-              self.modify_order(modified_ask)
-              quantity_remaining = 0.0
+          fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+          quantity_remaining = fills[0]
+          trade.asks += fills[1]
+     
         return trade
+
       elif side == Side.ask and self.bids.__len__() != 0:
         quantity_remaining = order.get_quantity()
         ask_elem = TradeElement(order.get_id(), order.get_price(), quantity_remaining)
-        trade.add_ask(ask_elem)
-        while quantity_remaining > 0.0 and self.asks.__len__() != 0:
-          top_item = self.bids.peektiem(0)  # (float : [int])
-          if top_item == None:
-            break
-          for id in top_item[1]:
-            bid = self.orders[id]
-            bid_quantity = bid.get_quantity()
-            if quantity_remaining >= bid_quantity:
-              quantity_remaining -= bid_quantity  
-              bid_elem = TradeElement(bid.get_id(), bid.get_price(), bid_quantity)
-              trade.add_bid(bid_elem)
-              self.cancel_order(bid.get_id())
-            else:
-              bid_quantity -= quantity_remaining
-              bid_elem = TradeElement(ask.get_id(), ask.get_price(), quantity_remaining)
-              trade.add_bid(bid_elem)
-              modified_bid = Modify(bid.get_id(), bid.get_price(), bid_quantity)
-              self.modify_order(modified_bid)
-              quantity_remaining = 0.0
+        trade.asks.append(ask_elem)
+        while quantity_remaining > 0.0 and self.bids.__len__() != 0:
+          fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+          quantity_remaining = fills[0]
+          trade.bids += fills[1]
+
         return trade
+
       else:
+
         return trade
        
     elif order_type == OrderType.limit:
-      pass
+      if side == Side.bid and self.asks.__len__() != 0:
+        price = order.get_price()
+        top_item = self.asks.peekitem(0) # (float : [int])
+        if top_item[0] > price:
+          self.orders_insert(order)
+          self.bids_insert(order)
+        else:
+          pass
+      elif side == Side.ask and self.bids.__len__() != 0:
+        pass
+      else:
+        return trade
     elif order_type == OrderType.fillOrKill:
       pass
     else:
