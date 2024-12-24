@@ -138,6 +138,10 @@ class OrderBook:
     return True
 
   def fill_order(self, side: Side, quantity_remaining: float): # -> (float, [TradeElement])
+    '''
+    - attempts to fill quantity_remaining worth from best price level on opposite side 
+    - returns tuple with quantity_remaining after filling and list of trade elements
+    '''
     if side == Side.bid:
       top_level = self.asks.peektiem(0)  # (float : [int])
     else:
@@ -173,7 +177,7 @@ class OrderBook:
     if order_type == OrderType.market:
       if side == Side.bid and self.asks.__len__() != 0:
         quantity_remaining = order.get_quantity()
-        bid_elem = TradeElement(order.get_id(), order.get_price(), quantity_remaining)
+        bid_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity())
         trade.bids.append(bid_elem)
         while quantity_remaining > 0.0 and self.asks.__len__() != 0:
           fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
@@ -200,16 +204,52 @@ class OrderBook:
     elif order_type == OrderType.limit:
       if side == Side.bid and self.asks.__len__() != 0:
         price = order.get_price()
-        top_item = self.asks.peekitem(0) # (float : [int])
-        if top_item[0] > price:
+        top_level = self.asks.peekitem(0) # (float : [int])
+        if top_level[0] > price:
           self.orders_insert(order)
           self.bids_insert(order)
+          return trade
         else:
-          pass
+          quantity_remaining = order.get_quantity()
+          while quantity_remaining > 0.0 and self.asks.__len__() != 0 and top_level[0] <= price:
+            fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+            quantity_remaining = fills[0]
+            trade.asks += fills[1]
+            top_level = self.asks.peekitem(0) # (float : [int])
+          bid_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
+          trade.bids.append(bid_elem)
+          if quantity_remaining > 0.0:
+            bid_remaining = Order(order.get_id(), side, order_type, price, quantity_remaining)
+            self.bids_insert(bid_remaining)
+
+          return trade
+            
       elif side == Side.ask and self.bids.__len__() != 0:
-        pass
+        price = order.get_price()
+        top_level = self.bids.peekitem(0) # (float : [int])
+        if top_level[0] < price:
+          self.orders_insert(order)
+          self.asks_insert(order)
+          return trade 
+        else:
+          quantity_remaining = order.get_quantity()
+          while quantity_remaining > 0.0 and self.bids.__len__() != 0 and top_level[0] >= price:
+            fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+            quantity_remaining = fills[0]
+            trade.bids += fills[1]
+            top_level = self.bids.peekitem(0) # (float : [int])
+          ask_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
+          trade.asks.append(ask_elem)
+          if quantity_remaining > 0.0:
+            ask_remaining = Order(order.get_id(), side, order_type, price, quantity_remaining)
+            self.asks_insert(ask_remaining)
+
+          return trade
+
       else:
+
         return trade
+
     elif order_type == OrderType.fillOrKill:
       pass
     else:
