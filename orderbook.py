@@ -77,7 +77,7 @@ class Trade:
 class OrderBook:
 
   def __init__(self):
-    self.bids = SortedDict(lambda x: -x)  #{float : [int]}
+    self.bids = SortedDict(lambda x: -x)  #{float : ([int], float)}
     self.asks = SortedDict()
     self.orders = {int : Order}
 
@@ -90,16 +90,18 @@ class OrderBook:
   def bids_insert(self, order: Order):
     price = order.get_price()
     if price in self.bids:
-      self.bids[price].append(order.get_id())
+      self.bids[price][0].append(order.get_id())
+      self.bids[price][1] += order.get_quantity()
     else:
-      self.bids[price] = [order.get_id()]
+      self.bids[price] = ([order.get_id()], order.get_quantity())
 
   def asks_insert(self, order: Order):
     price = order.get_price()
     if price in self.asks:
-      self.asks[price].append(order.get_id())
+      self.asks[price][0].append(order.get_id())
+      self.bids[price][1] += order.get_quantity()
     else:
-      self.asks[price] = [order.get_id()]
+      self.asks[price] = ([order.get_id()], order.get_quantity())
 
   def cancel_order(self, id: int) -> bool:
     order_to_cancel = self.orders[id]
@@ -108,17 +110,19 @@ class OrderBook:
     cancel_price = order_to_cancel.get_price()
     cancel_side = order_to_cancel.get_side()
     if cancel_side == Side.bid:
-      cancel_level = self.bids[cancel_price]
+      cancel_level = self.bids[cancel_price]  # ([int], float)
       if cancel_level == None:
         return False
-      cancel_level.remove(id)
+      cancel_level[0].remove(id)
+      cancel_level[1] -= cancel_price
       if cancel_level == []:
         self.bids.__delitem__(cancel_price)
     else:
-      cancel_level = self.asks[cancel_price]
+      cancel_level = self.asks[cancel_price]  # ([int], float)
       if cancel_level == None:
         return False
-      cancel_level.remove(id)
+      cancel_level[0].remove(id)
+      cancel_level[1] -= cancel_price
       if cancel_level == []:
         self.asks.__delitem__(cancel_price)
     del self.orders[id]
@@ -129,8 +133,6 @@ class OrderBook:
     order_to_modify = self.orders[id]
     modified_side = order_to_modify.get_side()
     modified_type = order_to_modify.get_type()
-    if order_to_modify.get_side() != modified_side:
-      return False
     if self.cancel_order(id) == False:
       return False
     new_order = Order(id, modified_side, modified_type, modify.get_price(), modify.get_quantity())
@@ -140,16 +142,18 @@ class OrderBook:
   def fill_order(self, side: Side, quantity_remaining: float): # -> (float, [TradeElement])
     '''
     - attempts to fill quantity_remaining worth from best price level on opposite side 
+    - removes orders from bids/asks that are used to fill the trade
+    - deletes price level if empty after orders are used for trade
     - returns tuple with quantity_remaining after filling and list of trade elements
     '''
     if side == Side.bid:
-      top_level = self.asks.peektiem(0)  # (float : [int])
+      top_level = self.asks.peektiem(0)  # (float : ([int], float))
     else:
-      top_level = self.bids.peektiem(0)  # (float : [int])
+      top_level = self.bids.peektiem(0)  # (float : ([int], float))
     if top_level == None:
       return None
     fills = []
-    for id in top_level[1]:
+    for id in top_level[1][0]:
       fill = self.orders[id]
       fill_quantity = fill.get_quantity()
       if quantity_remaining >= fill_quantity:
@@ -167,6 +171,25 @@ class OrderBook:
         break
 
     return (quantity_remaining, fills)
+  
+  def can_fully_fill(self, side: Side, price: float, quantity_remaining: float) -> bool:
+    if side == Side.bid:
+      opposite_book = self.asks
+    else:
+      opposite_book = self.bids
+    if opposite_book == None:
+      return False
+    for level in opposite_book: # level : (float : ([int], float))
+      if quantity_remaining <= 0:
+        return True
+      if side == Side.bid and level[0] > price:
+        return False
+      if side == Side.ask and level[0] < price:
+        return False
+      quantity_remaining -= level[1][1]
+
+    return False
+
   
 
   def add_order(self, order: Order) -> Trade:
@@ -204,7 +227,7 @@ class OrderBook:
     elif order_type == OrderType.limit:
       if side == Side.bid and self.asks.__len__() != 0:
         price = order.get_price()
-        top_level = self.asks.peekitem(0) # (float : [int])
+        top_level = self.asks.peekitem(0) # (float : ([int], float))
         if top_level[0] > price:
           self.orders_insert(order)
           self.bids_insert(order)
@@ -215,7 +238,7 @@ class OrderBook:
             fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
             quantity_remaining = fills[0]
             trade.asks += fills[1]
-            top_level = self.asks.peekitem(0) # (float : [int])
+            top_level = self.asks.peekitem(0) # (float : ([int], float))
           bid_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
           trade.bids.append(bid_elem)
           if quantity_remaining > 0.0:
@@ -226,7 +249,7 @@ class OrderBook:
             
       elif side == Side.ask and self.bids.__len__() != 0:
         price = order.get_price()
-        top_level = self.bids.peekitem(0) # (float : [int])
+        top_level = self.bids.peekitem(0) # (float : ([int], float))
         if top_level[0] < price:
           self.orders_insert(order)
           self.asks_insert(order)
@@ -237,7 +260,7 @@ class OrderBook:
             fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
             quantity_remaining = fills[0]
             trade.bids += fills[1]
-            top_level = self.bids.peekitem(0) # (float : [int])
+            top_level = self.bids.peekitem(0) # (float : ([int], float))
           ask_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
           trade.asks.append(ask_elem)
           if quantity_remaining > 0.0:
@@ -251,6 +274,36 @@ class OrderBook:
         return trade
 
     elif order_type == OrderType.fillOrKill:
-      pass
+      price = order.get_price()
+      if not self.can_fully_fill(side, price, order.get_quantity()):
+        return trade
+      if side == Side.bid:
+        top_level = self.asks.peekitem(0) # (float : ([int], float))
+        quantity_remaining = order.get_quantity()
+        while quantity_remaining > 0.0 and self.asks.__len__() != 0 and top_level[0] <= price:
+          fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+          quantity_remaining = fills[0]
+          trade.asks += fills[1]
+          top_level = self.asks.peekitem(0) # (float : ([int], float))
+        bid_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
+        trade.bids.append(bid_elem)
+
+        return trade
+
+      else:
+          top_level = self.bids.peekitem(0) # (float : ([int], float))
+          quantity_remaining = order.get_quantity()
+          while quantity_remaining > 0.0 and self.bids.__len__() != 0 and top_level[0] >= price:
+            fills = self.fill_order(side, quantity_remaining) #(float, [TradeElement])
+            quantity_remaining = fills[0]
+            trade.bids += fills[1]
+            top_level = self.bids.peekitem(0) # (float : ([int], float))
+          ask_elem = TradeElement(order.get_id(), order.get_price(), order.get_quantity() - quantity_remaining)
+          trade.asks.append(ask_elem)
+
+          return trade
+
+
     else:
+
       return trade
