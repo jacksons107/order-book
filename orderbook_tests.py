@@ -26,6 +26,29 @@ def test_add_limit_order_empty(order_book):
     assert len(trade.asks) == 0
 
 
+def test_cancel_order(order_book):
+    """Test if a limit order is cancelled correctly."""
+    limit_order = Order(0, Side.bid, OrderType.limit, 100.0, 100.0)
+    order_book.add_order(limit_order)
+    cancelled = order_book.cancel_order(limit_order.get_id())
+    assert len(order_book.orders) == 0
+    assert len(order_book.bids) == 0
+    assert cancelled == True
+
+
+def test_modify_order(order_book):
+    limit_order = Order(0, Side.bid, OrderType.limit, 100.0, 100.0)
+    modification = Modify(limit_order.get_id(), 200.0, 50.0)
+    order_book.add_order(limit_order)
+    assert order_book.orders[0].get_price() == 100.0
+    assert order_book.orders[0].get_quantity() == 100.0
+    order_book.modify_order(modification)
+    assert len(order_book.orders) == 1
+    assert len(order_book.bids) == 1
+    assert order_book.orders[0].get_price() == 200.0
+    assert order_book.orders[0].get_quantity() == 50.0
+    # print(order_book.bids[200.0])
+
 def test_add_market_order_full_fill(order_book):
     """Test if market order is fully filled when possible by one previous order"""
     limit_order = Order(0, Side.bid, OrderType.limit, 100.0, 100.0)
