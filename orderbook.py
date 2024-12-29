@@ -82,6 +82,10 @@ class OrderBook:
     # self.bids = self._bids_reversed.__reversed__()
     self.asks = SortedDict()
     self.orders = {} # {int : Order}
+    self.trades = []
+
+  def get_state(self):
+    return {"bids" : self.bids, "asks" : self.asks, "trades" : self.trades}
 
   def orders_insert(self, order: Order):
     id = order.get_id()
@@ -196,6 +200,11 @@ class OrderBook:
 
 
     return quantity_remaining <= 0
+  
+
+  def add_trade(self, trade: Trade):
+    if len(trade.bids) > 0 and len(trade.asks) > 0:
+      self.trades.append(trade)
 
   
 
@@ -217,6 +226,7 @@ class OrderBook:
           bid_elem = TradeElement(order.get_id(), fills[1][0].price, quantity_filled)
           trade.bids.append(bid_elem)
      
+        self.add_trade(trade)
         return trade
 
       elif side == Side.ask and len(self.bids) != 0:
@@ -230,10 +240,12 @@ class OrderBook:
           trade.bids += fills[1]
           ask_elem = TradeElement(order.get_id(), fills[1][0].price, quantity_filled)
           trade.asks.append(ask_elem)
+        self.add_trade(trade)
         return trade
 
       else:
 
+        self.add_trade(trade)
         return trade
        
     elif order_type == OrderType.limit:
@@ -243,6 +255,7 @@ class OrderBook:
         if top_level[0] > price:
           self.orders_insert(order)
           self.bids_insert(order)
+          self.add_trade(trade)
           return trade
         else:
           quantity_remaining = order.get_quantity()
@@ -263,6 +276,7 @@ class OrderBook:
             self.bids_insert(bid_remaining)
             self.orders_insert(bid_remaining)
 
+          self.add_trade(trade)
           return trade
 
       elif side == Side.ask and len(self.bids) != 0:
@@ -271,6 +285,8 @@ class OrderBook:
         if top_level[0] < price:
           self.orders_insert(order)
           self.asks_insert(order)
+          self.add_trade(trade)
+          self.add_trade(trade)
           return trade 
         else:
           quantity_remaining = order.get_quantity()
@@ -291,6 +307,7 @@ class OrderBook:
             self.asks_insert(ask_remaining)
             self.orders_insert(ask_remaining)
 
+          self.add_trade(trade)
           return trade
 
       else:
@@ -299,11 +316,13 @@ class OrderBook:
           self.bids_insert(order)
         else:
           self.asks_insert(order)
+        self.add_trade(trade)
         return trade
 
     elif order_type == OrderType.fillOrKill:
       price = order.get_price()
       if not self.can_fully_fill(side, price, order.get_quantity()):
+        self.add_trade(trade)
         return trade
       if side == Side.bid:
         top_level = self.asks.peekitem(0) # (float : [[int], float])
@@ -318,6 +337,7 @@ class OrderBook:
           if len(self.asks) != 0:
             top_level = self.asks.peekitem(0) # (float : [[int], float])
 
+        self.add_trade(trade)
         return trade
 
       else:
@@ -333,9 +353,11 @@ class OrderBook:
             if len(self.bids) != 0:
               top_level = self.bids.peekitem(0) # (float : [[int], float])
 
+          self.add_trade(trade)
           return trade
 
 
     else:
 
+      self.add_trade(trade)
       return trade
