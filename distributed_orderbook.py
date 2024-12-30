@@ -20,18 +20,30 @@ class DistributedOrderBook(OrderBook, SyncObj):
     return self.id_num
 
   @replicated
-  def add_market_order(self, side: Side, quantity: float):
-    order = Order(self.get_id(), side, OrderType.market, 0.0, quantity)
+  def add_market_order(self, side: str, quantity: float):
+    if side == "bid":
+      order_side = Side.bid
+    elif side == "ask":
+      order_side = Side.ask
+    order = Order(self.get_id(), order_side, OrderType.market, 0.0, quantity)
     return super().add_order(order)
   
   @replicated
-  def add_limit_order(self, side: Side, price: float, quantity: float):
-    order = Order(self.get_id(), side, OrderType.limit, price, quantity)
+  def add_limit_order(self, side: str, price: float, quantity: float):
+    if side == "bid":
+      order_side = Side.bid
+    elif side == "ask":
+      order_side = Side.ask
+    order = Order(self.get_id(), order_side, OrderType.limit, price, quantity)
     return super().add_order(order)
   
   @replicated
-  def add_fillOrKill_order(self, side: Side, price: float, quantity: float):
-    order = Order(self.get_id(), side, OrderType.fillOrKill, price, quantity)
+  def add_fillOrKill_order(self, side: str, price: float, quantity: float):
+    if side == "bid":
+      order_side = Side.bid
+    elif side == "ask":
+      order_side = Side.ask
+    order = Order(self.get_id(), order_side, OrderType.fillOrKill, price, quantity)
     return super().add_order(order)
   
   @replicated
