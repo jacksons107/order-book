@@ -1,5 +1,5 @@
 from pysyncobj import SyncObj, replicated
-from pysynchobj.batteries import ReplCounter
+from pysyncobj.batteries import ReplCounter
 from orderbook import OrderBook, Modify, Order, OrderType, Side
 
 

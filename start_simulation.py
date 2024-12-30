@@ -4,7 +4,7 @@ import time
 def start_node(self_addr, partner_addrs):
     """Start a single node in a new subprocess."""
     args = [
-        "python", "distributed_node.py", 
+        "python3", "distributed_node.py", 
         "--self_addr", self_addr,
         "--partner_addrs"
     ] + partner_addrs
