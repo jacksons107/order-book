@@ -12,6 +12,5 @@ if __name__ == "__main__":
     port = 8000  # Connect to one of the node servers
 
     # Test commands
-    send_request(host, port, "add_market_order bid 10")
-    send_request(host, port, "add_limit_order ask 100 5")
+    send_request(host, port, "add_limit_order ask 100.0 5.0")
     send_request(host, port, "get_state")
