@@ -83,14 +83,19 @@ class OrderBook:
     self.asks = SortedDict()
     self.orders = {} # {int : Order}
     self.trades = []
+    self.id_num = 0
+
+  def get_id(self):
+    self.id_num += 1
+    return self.id_num
 
   def get_state(self):
-    return {"bids" : self.bids, "asks" : self.asks, "trades" : self.trades}
+    return {"id" : self.id_num, "bids" : self.bids, "asks" : self.asks, "orders": self.orders, "trades" : self.trades}
 
   def orders_insert(self, order: Order):
     id = order.get_id()
-    if id in self.orders:
-      raise Exception ("Order ID already exists")
+    # if id in self.orders:
+    #   raise Exception ("Order ID already exists")
     self.orders[id] = order
 
 
