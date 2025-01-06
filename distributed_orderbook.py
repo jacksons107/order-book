@@ -13,6 +13,8 @@ class DistributedOrderBook(OrderBook, SyncObj):
     conf = SyncObjConf(fullDumpFile='/tmp/dump.log')
     SyncObj.__init__(self, self_node, other_nodes, conf=conf)
     OrderBook.__init__(self)
+    # self.port = self_node
+    # self.order_num = 0
 
     # self.id_num = ReplCounter()
     # self.id_num.set(0, synch=True)
@@ -38,47 +40,63 @@ class DistributedOrderBook(OrderBook, SyncObj):
     print(super().get_state())
     # return super().get_state()
 
+  # def inc_order_num(self):
+  #   self.order_num += 1
+
+  # def get_order_num(self):
+  #   return self.order_num
+  
+  # def get_port(self):
+  #   return self.port
+  
+  # def get_order_id(self):
+  #   self.inc_order_num()
+  #   order_num = self.get_order_num()
+  #   port = self.get_port()
+  #   return f"{port}-{order_num}"
+
+
   # @replicated
   # def get_id(self):
   #   self.id_num.inc(synch=True)
   #   return self.id_num
 
-  @replicated
-  def get_id(self):
-    return super().get_id()
+  # @replicated
+  # def get_id(self):
+  #   return super().get_id()
 
   @replicated
-  def add_market_order(self, side: str, quantity: float):
+  def add_market_order(self, id: str, side: str, quantity: float):
     if side == "bid":
       order_side = Side.bid
     elif side == "ask":
       order_side = Side.ask
-    order = Order(self.get_id(), order_side, OrderType.market, 0.0, quantity)
+    order = Order(id, order_side, OrderType.market, 0.0, quantity)
     return super().add_order(order)
   
   @replicated
-  def add_limit_order(self, side: str, price: float, quantity: float):
+  def add_limit_order(self, id: str, side: str, price: float, quantity: float):
     if side == "bid":
       order_side = Side.bid
     elif side == "ask":
       order_side = Side.ask
-    order = Order(self.get_id(), order_side, OrderType.limit, price, quantity)
+    order = Order(id, order_side, OrderType.limit, price, quantity)
     return super().add_order(order)
   
   @replicated
-  def add_fillOrKill_order(self, side: str, price: float, quantity: float):
+  def add_fillOrKill_order(self, id: str, side: str, price: float, quantity: float):
     if side == "bid":
       order_side = Side.bid
     elif side == "ask":
       order_side = Side.ask
-    order = Order(self.get_id(), order_side, OrderType.fillOrKill, price, quantity)
+    order = Order(id, order_side, OrderType.fillOrKill, price, quantity)
     return super().add_order(order)
   
   @replicated
-  def modify_order(self, id: int, price: float, quantity: float):
+  def modify_order(self, id: str, price: float, quantity: float):
     modify = Modify(id, price, quantity)
-    return super().modify_order(modify)
+    return super()._modify_order(modify)
   
   @replicated
-  def cancel_order(self, id):
-    return super().cancel_order(id)
+  def cancel_order(self, id: str):
+    return super()._cancel_order(id)

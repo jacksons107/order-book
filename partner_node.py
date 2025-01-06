@@ -17,5 +17,6 @@ if __name__ == '__main__':
         time.sleep(0.5)
 
     while True:
+      print(f"Node: {port}")
       o.get_state()
       time.sleep(3)

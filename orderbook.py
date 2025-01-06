@@ -14,7 +14,7 @@ class OrderType(Enum):
 
 class Order:
 
-  def __init__(self, id: int, side: Side, order_type: OrderType, price: float, quantity: float):
+  def __init__(self, id: str, side: Side, order_type: OrderType, price: float, quantity: float):
     self.id = id
     self.side = side
     self.order_type = order_type
@@ -39,7 +39,7 @@ class Order:
   
 class Modify:
 
-  def __init__(self, id: int, price: float, quantity: float):
+  def __init__(self, id: str, price: float, quantity: float):
     self.id = id
     self.price = price
     self.quantity = quantity
@@ -55,7 +55,7 @@ class Modify:
 
 class TradeElement:
 
-  def __init__(self, id: int, price: float, quantity: float):
+  def __init__(self, id: str, price: float, quantity: float):
     self.id = id
     self.price = price
     self.quantity = quantity
@@ -83,14 +83,14 @@ class OrderBook:
     self.asks = SortedDict()
     self.orders = {} # {int : Order}
     self.trades = []
-    self.id_num = 0
+    # self.id_num = 0
 
-  def get_id(self):
-    self.id_num += 1
-    return self.id_num
+  # def get_id(self):
+  #   self.id_num += 1
+  #   return self.id_num
 
   def get_state(self):
-    return {"id" : self.id_num, "bids" : self.bids, "asks" : self.asks, "orders": self.orders, "trades" : self.trades}
+    return {"bids" : self.bids, "asks" : self.asks, "orders": self.orders, "trades" : self.trades}
 
   def orders_insert(self, order: Order):
     id = order.get_id()
@@ -117,7 +117,7 @@ class OrderBook:
     else:
       self.asks[price] = [[order.get_id()], order.get_quantity()]
 
-  def cancel_order(self, id: int) -> bool:
+  def _cancel_order(self, id: str) -> bool:
     order_to_cancel = self.orders[id]
     if order_to_cancel == None:
       return False
@@ -143,12 +143,12 @@ class OrderBook:
     del self.orders[id]
     return True
   
-  def modify_order(self, modify: Modify) -> bool:
+  def _modify_order(self, modify: Modify) -> bool:
     id = modify.get_id()
     order_to_modify = self.orders[id]
     modified_side = order_to_modify.get_side()
     modified_type = order_to_modify.get_type()
-    if self.cancel_order(id) == False:
+    if self._cancel_order(id) == False:
       return False
     new_order = Order(id, modified_side, modified_type, modify.get_price(), modify.get_quantity())
     self.add_order(new_order)
@@ -175,13 +175,13 @@ class OrderBook:
         quantity_remaining -= fill_quantity  
         fill_elem = TradeElement(fill.get_id(), fill.get_price(), fill_quantity)
         fills.append(fill_elem)
-        self.cancel_order(fill.get_id())
+        self._cancel_order(fill.get_id())
       else:
         fill_quantity -= quantity_remaining
         fill_elem = TradeElement(fill.get_id(), fill.get_price(), quantity_remaining)
         fills.append(fill_elem)
         modified_fill = Modify(fill.get_id(), fill.get_price(), fill_quantity)
-        self.modify_order(modified_fill)
+        self._modify_order(modified_fill)
         quantity_remaining = 0.0
         break
 
